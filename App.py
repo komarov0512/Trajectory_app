@@ -1,4 +1,3 @@
-import tkinter as tk
 import customtkinter
 from CTkMessagebox import CTkMessagebox
 from tkinter import filedialog
@@ -18,6 +17,8 @@ from matplotlib.figure import Figure
 
 # For timer
 counter = 0
+# For stop reading data
+reading_data_is_available = True
 # For stop recording
 record_start = False
 # Success connect
@@ -67,10 +68,10 @@ def read_serial_data():
         connect_check = True
         CTkMessagebox(message="Port is successfully connected.\nPlease, wait at least 5sec.",
                       icon="check", option_1="Thanks", height=150, width=300)
-
-    while True:
+    while reading_data_is_available:
         try:
             if ser.in_waiting:
+
                 w1, w2, w3, w4 = [], [], [], []
                 for k in range(5):
                     packet = ser.readline()
@@ -86,6 +87,7 @@ def read_serial_data():
                              float(np.round(np.mean(w4), 2))]
         except Exception as e:
             print(f"Ошибка чтения данных: {e}")
+    ser.close()
 
 
 def buttonConnect_callback():
@@ -99,10 +101,10 @@ def buttonConnect_callback():
 
 def recording_data():
     global data_recording
-    hertz = 1 / int(hz.get()[:2])
-    while record_start:
+    hertz = 1 / int(hz.get()[0])
+    while record_start and reading_data_is_available:
         data_recording.append(temp_coord)
-        time.sleep(hertz-0.007)
+        time.sleep(hertz)
 
 
 def buttonRecord_callback():
@@ -120,7 +122,6 @@ def buttonRecord_callback():
 def buttonStopRecord_callback():
     global record_start
     record_start = False
-    print(len(data_recording))
 
 
 def buttonSaveFile_callback():
@@ -169,7 +170,6 @@ def timer_update():
 
 
 def compute(points):
-    # print(points)
     radiuses = []
     for point in points:
         r = 400 - (400 / sum(points) * point)
@@ -200,14 +200,11 @@ def compute(points):
                 id2 = i - 1
                 check += 1
                 break
-    # print('id1 =', id1, '; id2 = ', id2)
     if check == 2:
         circles.pop(id1)
         circles.pop(id2)
     elif max(points) - min(points) > 30:
-        # print('Hey!')
         circles.pop(points.index(min(points)))
-    # print("len: ", len(circles))
     solution = minimize(lambda x: objective(x, circles), initial_guess)
 
     def correcting(k):
@@ -217,8 +214,6 @@ def compute(points):
             return -200
         else:
             return k
-
-    # print('solution: ', correcting(solution.x[0]), correcting(solution.x[1]))
     return correcting(solution.x[0]), correcting(solution.x[1])
 
 
@@ -226,7 +221,6 @@ def update_plot():
     global temp_coord
     try:
         if not len(temp_data) == 0:
-            # print(temp_data)
             x, y = compute(temp_data)
             temp_coord = [int(x), int(y)]
             labelInfo.configure(text="Coord:(" + str(int(x)) + ";" + str(int(y)) + ")")
@@ -243,10 +237,25 @@ def update_plot():
     buttonConnect.after(500, update_plot)
 
 
+def buttonThread_callback():
+    print("Active:", threading.active_count())
+    print(threading.enumerate())
+
+
 app = customtkinter.CTk()
-# app.attributes("-fullscreen", True)
 app.geometry("1000x750")
 app.title("Trajectory app")
+
+
+# Function for close app
+def quit_me():
+    global reading_data_is_available
+    reading_data_is_available = False
+    app.quit()
+    app.destroy()
+
+
+app.protocol("WM_DELETE_WINDOW", quit_me)
 
 # Frame
 frame_tools = customtkinter.CTkFrame(master=app, width=200)  # ,fg_color='gray92')
@@ -284,14 +293,14 @@ labelInfo.grid(row=3, column=0, columnspan=2, padx=10, pady=(10, 10), sticky="w"
 
 # Parameter record
 # Variable Hz
-hz = customtkinter.StringVar(value="10hz")
+hz = customtkinter.StringVar(value="1hz")
 # OptionMenu for choose Hz
 comboboxHZlist = customtkinter.CTkOptionMenu(master=frame_tools,
                                              height=30,
-                                             values=["10hz", "25hz", "40hz"],
+                                             values=["1hz", "2hz"],
                                              variable=hz)
 comboboxHZlist.grid(row=4, column=0, columnspan=2, padx=10, pady=(10, 0), sticky="we")
-comboboxHZlist.set("10hz")
+comboboxHZlist.set("1hz")
 
 # Button start record
 buttonRecord = customtkinter.CTkButton(master=frame_tools,

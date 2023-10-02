@@ -4,9 +4,10 @@ import matplotlib.pyplot as plt
 import threading
 import numpy as np
 from scipy.optimize import minimize
+import time
 
 # Инициализация последовательного порта
-ser = serial.Serial('COM3', baudrate=9600)  # Замените 'COM1' на ваш порт и настройки
+ser = serial.Serial('COM5', baudrate=9600)  # Замените 'COM1' на ваш порт и настройки
 
 # Очередь для хранения данных
 data = []
@@ -19,6 +20,7 @@ data = []
 def read_serial_data():
     while True:
         try:
+            t = time.time()
             # if len(data) >= 20: break
             if ser.in_waiting:
                 w1, w2, w3, w4 = [], [], [], []
@@ -33,6 +35,7 @@ def read_serial_data():
                              float(np.round(np.mean(w2), 2)),
                              float(np.round(np.mean(w3), 2)),
                              float(np.round(np.mean(w4), 2))])
+                print(time.time()-t)
         except Exception as e:
             print(f"Ошибка чтения данных: {e}")
 
